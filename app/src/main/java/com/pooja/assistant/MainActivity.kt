@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.pooja.assistant.R
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,11 +23,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        
+        val layoutId = resources.getIdentifier("activity_main", "layout", packageName)
+        if (layoutId != 0) {
+            setContentView(layoutId)
+        }
 
-        tvStatus = findViewById(R.id.tvStatus)
-        btnToggleService = findViewById(R.id.btnToggleService)
-        btnAccessibility = findViewById(R.id.btnAccessibility)
+        val tvStatusId = resources.getIdentifier("tvStatus", "id", packageName)
+        val btnToggleId = resources.getIdentifier("btnToggleService", "id", packageName)
+        val btnAccessId = resources.getIdentifier("btnAccessibility", "id", packageName)
+
+        tvStatus = findViewById(tvStatusId)
+        btnToggleService = findViewById(btnToggleId)
+        btnAccessibility = findViewById(btnAccessId)
 
         requestRequiredPermissions()
 
