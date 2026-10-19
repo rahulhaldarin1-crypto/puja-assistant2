@@ -18,21 +18,33 @@ class PoojaAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val rootNode = rootInActiveWindow ?: return
-        val sb = StringBuilder()
-        extractAllText(rootNode, sb)
-        currentScreenText = sb.toString().take(1500) // এআই বিশ্লেষণের জন্য প্রথম ১৫০০ অক্ষর নেওয়া হলো
+        try {
+            val rootNode = rootInActiveWindow ?: return
+            val sb = StringBuilder()
+            extractAllText(rootNode, sb)
+            currentScreenText = sb.toString().take(1500)
+        } catch (e: Exception) {
+            // ক্র্যাশ আটকাতে এক্সেপশন হ্যান্ডেল করা হলো
+        }
     }
 
     private fun extractAllText(node: AccessibilityNodeInfo?, sb: StringBuilder) {
         if (node == null) return
-        node.text?.let {
-            if (it.isNotBlank()) {
-                sb.append(it).append(" | ")
+        try {
+            node.text?.let {
+                if (it.isNotBlank()) {
+                    sb.append(it).append(" | ")
+                }
             }
-        }
-        for (i in 0 until node.childCount) {
-            extractAllText(node.getChild(i), sb)
+            val count = node.childCount
+            for (i in 0 until count) {
+                val child = try { node.getChild(i) } catch (e: Exception) { null }
+                if (child != null) {
+                    extractAllText(child, sb)
+                }
+            }
+        } catch (e: Exception) {
+            // চাইল্ড নোড পড়ার সময় এরর হলে সার্ভিস ক্র্যাশ করবে না
         }
     }
 
