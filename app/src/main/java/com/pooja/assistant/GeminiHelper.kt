@@ -11,8 +11,7 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 object GeminiHelper {
-    // এখানে আপনার Google AI Studio-র API Key বসাতে পারবেন
-    var apiKey: String = "YOUR_GEMINI_API_KEY_HERE"
+    var apiKey: String = "AQ.Ab8RN6Lm4HZpViVIhL7sppGyPZOkOr6fpMWMYRgJRYJJjjipIQ"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -78,7 +77,7 @@ object GeminiHelper {
             JSONObject().apply {
                 put("action", "CHAT")
                 put("target", "")
-                put("reply", "দুঃখিত, সংযোগে কিছুটা সমস্যা হচ্ছে। আপনি কি আবার বলবেন?")
+                put("reply", "দুঃখিত, ইন্টারনেট বা সার্ভারে সাময়িক সমস্যা হচ্ছে।")
             }
         }
     }
