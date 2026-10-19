@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Pooja Assistant</string>
+    <string name="accessibility_service_description">Pooja AI Assistant-কে আপনার স্ক্রিনের মেসেজ পড়তে এবং নির্দেশ অনুযায়ী অ্যাপ কন্ট্রোল করতে এই পারমিশনটি দিন।</string>
+</resources>
