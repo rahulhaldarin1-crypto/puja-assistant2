@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -16,84 +15,56 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var tvStatus: TextView
-    private lateinit var btnToggleService: Button
-    private lateinit var btnAccessibility: Button
-    private var isServiceRunning = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        val layoutId = resources.getIdentifier("activity_main", "layout", packageName)
-        if (layoutId != 0) {
-            setContentView(layoutId)
-        }
+        setContentView(R.layout.activity_main)
 
-        val tvStatusId = resources.getIdentifier("tvStatus", "id", packageName)
-        val btnToggleId = resources.getIdentifier("btnToggleService", "id", packageName)
-        val btnAccessId = resources.getIdentifier("btnAccessibility", "id", packageName)
+        checkAndRequestPermissions()
 
-        tvStatus = findViewById(tvStatusId)
-        btnToggleService = findViewById(btnToggleId)
-        btnAccessibility = findViewById(btnAccessId)
-
-        requestRequiredPermissions()
-
-        btnToggleService.setOnClickListener {
-            if (!isServiceRunning) {
-                startPoojaService()
-            } else {
-                stopPoojaService()
+        val btnStart = findViewById<Button>(R.id.btnStartService)
+        btnStart?.setOnClickListener {
+            try {
+                if (checkOverlayPermission()) {
+                    Toast.makeText(this, "পূজা সার্ভিস সক্রিয় রয়েছে", Toast.LENGTH_SHORT).show()
+                } else {
+                    requestOverlayPermission()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "সার্ভিস চালুর সময় সমস্যা হয়েছে", Toast.LENGTH_SHORT).show()
             }
         }
-
-        btnAccessibility.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            startActivity(intent)
-            Toast.makeText(this, "তালিকা থেকে 'Pooja Assistant' অন করুন", Toast.LENGTH_LONG).show()
-        }
     }
 
-    private fun startPoojaService() {
-        val intent = Intent(this, PoojaVoiceService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-        isServiceRunning = true
-        tvStatus.text = "স্ট্যাটাস: পূজা শুনছে ('পূজা' বলে ডাকুন)"
-        btnToggleService.text = "পূজা বন্ধ করুন"
-    }
-
-    private fun stopPoojaService() {
-        val intent = Intent(this, PoojaVoiceService::class.java)
-        stopService(intent)
-        isServiceRunning = false
-        tvStatus.text = "স্ট্যাটাস: সার্ভিস বন্ধ রয়েছে"
-        btnToggleService.text = "পূজা চালু করুন"
-    }
-
-    private fun requestRequiredPermissions() {
+    private fun checkAndRequestPermissions() {
         val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        val neededPermissions = permissions.filter {
+        val listToRequest = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
 
-        if (neededPermissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, neededPermissions.toTypedArray(), 101)
+        if (listToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, listToRequest.toTypedArray(), 101)
         }
+    }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            val overlayIntent = Intent(
+    private fun checkOverlayPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(this)
+        } else {
+            true
+        }
+    }
+
+    private fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
-            startActivity(overlayIntent)
+            startActivity(intent)
         }
     }
 }
