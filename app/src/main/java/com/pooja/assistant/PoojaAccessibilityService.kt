@@ -2,73 +2,130 @@ package com.pooja.assistant
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
+import java.util.Locale
 
-class PoojaAccessibilityService : AccessibilityService() {
+class PoojaAccessibilityService : AccessibilityService(), TextToSpeech.OnInitListener {
 
-    companion object {
-        var instance: PoojaAccessibilityService? = null
-        var currentScreenText: String = ""
-    }
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var recognizerIntent: Intent? = null
+    private var tts: TextToSpeech? = null
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        instance = this
+        tts = TextToSpeech(this, this)
+        handler.post { setupSpeechRecognizer() }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale("bn", "BD")
+            speakOut("আমি পূজা, আমি প্রস্তুত। বলুন কিভাবে সাহায্য করতে পারি?")
+        }
+    }
+
+    private fun setupSpeechRecognizer() {
+        if (SpeechRecognizer.isRecognitionAvailable(this)) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+                setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {}
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {}
+                    override fun onError(error: Int) {
+                        handler.postDelayed({ startListening() }, 2000)
+                    }
+
+                    override fun onResults(results: Bundle?) {
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        if (!matches.isNullOrEmpty()) {
+                            val command = matches[0].lowercase(Locale.ROOT)
+                            handleVoiceCommand(command)
+                        }
+                        handler.postDelayed({ startListening() }, 1500)
+                    }
+
+                    override fun onPartialResults(partialResults: Bundle?) {}
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+            }
+
+            recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
+                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+            }
+
+            startListening()
+        }
+    }
+
+    private fun startListening() {
         try {
-            val rootNode = rootInActiveWindow ?: return
-            val sb = StringBuilder()
-            extractAllText(rootNode, sb)
-            currentScreenText = sb.toString().take(1500)
+            recognizerIntent?.let { speechRecognizer?.startListening(it) }
         } catch (e: Exception) {
-            // ক্র্যাশ আটকাতে এক্সেপশন হ্যান্ডেল করা হলো
+            // সার্ভিস ব্যস্ত থাকলে ক্যাচ করবে
         }
     }
 
-    private fun extractAllText(node: AccessibilityNodeInfo?, sb: StringBuilder) {
-        if (node == null) return
-        try {
-            node.text?.let {
-                if (it.isNotBlank()) {
-                    sb.append(it).append(" | ")
-                }
+    private fun handleVoiceCommand(command: String) {
+        Toast.makeText(this, "আপনি বলেছেন: $command", Toast.LENGTH_SHORT).show()
+
+        when {
+            command.contains("ইউটিউব") || command.contains("youtube") -> {
+                speakOut("ইউটিউব ওপেন করছি")
+                openApp("com.google.android.youtube")
             }
-            val count = node.childCount
-            for (i in 0 until count) {
-                val child = try { node.getChild(i) } catch (e: Exception) { null }
-                if (child != null) {
-                    extractAllText(child, sb)
-                }
+            command.contains("হোয়াটসঅ্যাপ") || command.contains("whatsapp") -> {
+                speakOut("হোয়াটসঅ্যাপ ওপেন করছি")
+                openApp("com.whatsapp")
             }
-        } catch (e: Exception) {
-            // চাইল্ড নোড পড়ার সময় এরর হলে সার্ভিস ক্র্যাশ করবে না
+            command.contains("কেমন আছো") -> {
+                speakOut("আমি ভালো আছি, আপনার দিনটি কেমন কাটছে?")
+            }
+            command.contains("পূজা") || command.contains("puja") -> {
+                speakOut("জি, আমি শুনছি। আদেশ করুন।")
+            }
+            else -> {
+                speakOut("আমি আপনার কথা শুনেছি: $command")
+            }
         }
     }
 
-    fun openApplication(packageName: String): Boolean {
-        return try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(launchIntent)
-                true
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            false
+    private fun openApp(packageName: String) {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(launchIntent)
+        } else {
+            speakOut("অ্যাপটি আপনার ফোনে খুঁজে পাওয়া যায়নি")
         }
     }
+
+    private fun speakOut(text: String) {
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 
     override fun onInterrupt() {
-        instance = null
+        speechRecognizer?.stopListening()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        instance = null
+        speechRecognizer?.destroy()
+        tts?.stop()
+        tts?.shutdown()
     }
 }
